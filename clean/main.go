@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"flag"
 	"fmt"
@@ -8,6 +9,13 @@ import (
 	"os"
 	"path"
 	"strconv"
+)
+
+const (
+	TB = 1099511627776
+	GB = 1073741824
+	MB = 1048576
+	KB = 1024
 )
 
 type DuplicateIndex struct {
@@ -32,33 +40,74 @@ func (index *DuplicateIndex) AddEntry(hash, path string, size int64) {
 	index.hashes[hash] = path
 }
 
-func traverseDir(index *DuplicateIndex, entries []os.FileInfo, directory string) error {
+func (index *DuplicateIndex) TraverseDirRecursively(directory string) error {
+	entries, err := ioutil.ReadDir(directory)
+	if err != nil {
+		return err
+	}
 	for _, entry := range entries {
-		fullpath := (path.Join(directory, entry.Name()))
-
-		if entry.IsDir() {
-			dirFiles, err := ioutil.ReadDir(fullpath)
-			if err != nil {
-				return err
-			}
-			traverseDir(index, dirFiles, fullpath)
-			continue
-		}
-		if !entry.Mode().IsRegular() {
-			continue
-		}
-
-		hash, err := newFileHash(fullpath)
-		if err != nil {
+		if err := NewEntryHandler(entry, directory).Handle(index); err != nil {
 			return err
 		}
-		index.AddEntry(hash, fullpath, entry.Size())
 	}
 	return nil
 }
 
-func newFileHash(path string) (string, error) {
-	file, err := ioutil.ReadFile(path)
+func (index *DuplicateIndex) Result() string {
+	buf := &bytes.Buffer{}
+	buf.WriteString("DUPLICATES\n")
+	for key, val := range index.duplicates {
+		buf.WriteString(
+			fmt.Sprintf("key: %s, val: %s\n", key, val),
+		)
+	}
+	buf.WriteString(fmt.Sprintln("TOTAL FILES:", len(index.hashes)))
+	buf.WriteString(fmt.Sprintln("DUPLICATES:", len(index.duplicates)))
+	buf.WriteString(fmt.Sprintln("TOTAL DUPLICATE SIZE:", toReadableSize(index.dupeSize)))
+	return buf.String()
+}
+
+type EntryHandler interface {
+	Handle(*DuplicateIndex) error
+}
+
+type DirEntry struct {
+	fullpath string
+}
+
+type FileEntry struct {
+	fullpath string
+	size     int64
+}
+
+type NilEntry struct{}
+
+func NewEntryHandler(entry os.FileInfo, directory string) EntryHandler {
+	fullpath := path.Join(directory, entry.Name())
+	if entry.Mode().IsDir() {
+		return &DirEntry{fullpath}
+	}
+	if entry.Mode().IsRegular() {
+		return &FileEntry{fullpath, entry.Size()}
+	}
+	return &NilEntry{}
+}
+
+func (entry *DirEntry) Handle(index *DuplicateIndex) error {
+	return index.TraverseDirRecursively(entry.fullpath)
+}
+
+func (entry *FileEntry) Handle(index *DuplicateIndex) error {
+	hash, err := entry.newHash()
+	if err != nil {
+		return err
+	}
+	index.AddEntry(hash, entry.fullpath, entry.size)
+	return nil
+}
+
+func (entry *FileEntry) newHash() (string, error) {
+	file, err := ioutil.ReadFile(entry.fullpath)
 	if err != nil {
 		return "", err
 	}
@@ -66,14 +115,12 @@ func newFileHash(path string) (string, error) {
 	if _, err := hash.Write(file); err != nil {
 		return "", err
 	}
-	hashSum := hash.Sum(nil)
-	return fmt.Sprintf("%x", hashSum), nil
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
-const TB = 1099511627776
-const GB = 1073741824
-const MB = 1048576
-const KB = 1024
+func (entry *NilEntry) Handle(index *DuplicateIndex) error {
+	return nil
+}
 
 func toReadableSize(nbytes int64) string {
 	switch {
@@ -90,37 +137,18 @@ func toReadableSize(nbytes int64) string {
 }
 
 func main() {
-	var err error
-	dir := flag.String("path", "", "the path to traverse searching for duplicates")
-	flag.Parse()
-
-	if *dir == "" {
-		*dir, err = os.Getwd()
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	hashes := map[string]string{}
-	duplicates := map[string]string{}
-	var dupeSize int64
-
-	entries, err := ioutil.ReadDir(*dir)
+	defaultPath, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
 
-	if err := traverseDir(hashes, duplicates, &dupeSize, entries, *dir); err != nil {
+	dir := flag.String("path", defaultPath, "the path to traverse searching for duplicates")
+	flag.Parse()
+
+	index := NewDuplicateIndex()
+	if err := index.TraverseDirRecursively(*dir); err != nil {
 		panic(err)
 	}
 
-	fmt.Println("DUPLICATES")
-	for key, val := range duplicates {
-		fmt.Printf("key: %s, val: %s\n", key, val)
-	}
-	fmt.Println("TOTAL FILES:", len(hashes))
-	fmt.Println("DUPLICATES:", len(duplicates))
-	fmt.Println("TOTAL DUPLICATE SIZE:", toReadableSize(dupeSize))
+	fmt.Println(index.Result())
 }
-
-// running into problems of not being able to open directories inside .app folders
