@@ -245,3 +245,39 @@ Firstly, I don't like the `var err error` that has to go! Whenever we see this, 
 
 The last thing we are going to do, is that we will create a `Result()` function on the `DuplicateIndex`, which will return a similar string to what we are printing now and rename our `toReadableString` function to `
 
+```go
+func (index *DuplicateIndex) Result() string {
+	buf := &bytes.Buffer{}
+	buf.WriteString("DUPLICATES\n")
+	for key, val := range index.duplicates {
+		buf.WriteString(
+			fmt.Sprintf("key: %s, val: %s\n", key, val),
+		)
+	}
+	buf.WriteString(fmt.Sprintln("TOTAL FILES:", len(index.hashes)))
+	buf.WriteString(fmt.Sprintln("DUPLICATES:", len(index.duplicates)))
+	buf.WriteString(fmt.Sprintln("TOTAL DUPLICATE SIZE:", toReadableSize(index.dupeSize)))
+	return buf.String()
+}
+```
+
+our final main function looks as such:
+
+```go
+func main() {
+	defaultPath, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	dir := flag.String("path", defaultPath, "the path to traverse searching for duplicates")
+	flag.Parse()
+
+	index := NewDuplicateIndex()
+	if err := index.TraverseDirRecursively(*dir); err != nil {
+		panic(err)
+	}
+
+	fmt.Println(index.Result())
+}
+```
