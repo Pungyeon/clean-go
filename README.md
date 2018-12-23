@@ -237,6 +237,8 @@ func (entry *FileEntry) newHash() (string, error) {
 }
 ```
 
+### Refactoring `main`
+
 So, now we are pretty much all refactored on the functions of the program. All we need to do now, is to refactor the main function. 
 
 Firstly, I don't like the `var err error` that has to go! Whenever we see this, it's a sign that we are doing something wrong :) 
