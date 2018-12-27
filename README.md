@@ -1,16 +1,144 @@
 ### Draft
+# Cleaning Code in Go
 
-### Process of Refactoring
+## Introduction
+So, this article is a little different from my others. Instead of focusing on a specific product, or solving a speficied problem, we will be looking at something a little more abstract. This article will be focusing on writing "clean code". The article will be starting with a short introduction as to what is defined by "clean code" and then, we will move onto a practical example, in which we refactor an example code snippet, into a cleaner version. You can find all code for this article at https://github.com/Pungyeon/clean-go
 
-Create Tests (?) 
+## What is "Clean Code"
+The idea of clode code, is not something that is particularly rigid in definition. In my opinion, the closest thing to a defacto standard, are the books produced by Robert C. Martin (also known as "Uncle Bob"), who has written "Clean Code" and has produced an excellent video series on the topic. 
 
-- Copy all code to the clean main package
+However, I will attempt to give a brief summary of what I believe to be clean code:
 
-Start Refactoring :
+1. Easy to read code
+	- Clean code is easy to read. In fact, it should be almost as easy to read as prose. If there is need for comments or the like, the code most likely isn't clean. It's intentions should be very clear, just from skimming the code.
+2. Independant of rest of code base
+	- Clean code ensures that if code changes in one part of the codebase, it shouldn't have to change the rest of the codebase. If we introduce a new database, we should be able to replace only the database logic and be able to test the code similarly with the new logic.
+3. Testable
+	- This is not only true for clean code, but for *all code*. It should be testable. If code is not testable, we can be very sure that it's not clean. 
+
+There are many other additions to these sentiments. Code also shouldn't be duplicated, functions shouldn't be very long etc. However, we will cover this later. These three rules are, in my opinion, the most important aspects to writing clean code.
+
+Whereas most aspects of clean code make sense and seems extremely intuitive, there are also some counterintuitive aspects of clean code. Writing clean code usually produces more lines of code than bad code (also referred to as sphagetti code). It's therefore very important to recognize, that writing clean code is not making the code "fat free" exclusively. The main goal of writing clean code is to make future development of code easier, and to reduce / eliminate bugs from programs. 
+
+## Why "Clean Code"?
+
+
+## Our Application
+So, let's get right to it. I made a simple program, which traverses a file system and returns a list of duplicate files, based on their file contents. The way we are doing this is by reading the file, hashing the contents of the files as a `sha256` string, which is stored in a hash table, and then comparing the files on each traversal iteration. 
+
+### Sphagetti Code
+This is my first iteration of the program. Which was written pretty fast, without the consideration of anyone else going reading the code:
+
+```go 
+package main
+
+import (
+	"crypto/sha1"
+	"flag"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"strconv"
+	"sync/atomic"
+)
+
+func traverseDir(hashes, duplicates map[string]string, dupeSize *int64, entries []os.FileInfo, directory string) {
+	for _, entry := range entries {
+		fullpath := (path.Join(directory, entry.Name()))
+
+		if !entry.Mode().IsDir() && !entry.Mode().IsRegular() {
+			continue
+		}
+
+		if entry.IsDir() {
+			dirFiles, err := ioutil.ReadDir(fullpath)
+			if err != nil {
+				panic(err)
+			}
+			traverseDir(hashes, duplicates, dupeSize, dirFiles, fullpath)
+			continue
+		}
+		file, err := ioutil.ReadFile(fullpath)
+		if err != nil {
+			panic(err)
+		}
+		hash := sha1.New()
+		if _, err := hash.Write(file); err != nil {
+			panic(err)
+		}
+		hashSum := hash.Sum(nil)
+		hashString := fmt.Sprintf("%x", hashSum)
+		if hashEntry, ok := hashes[hashString]; ok {
+			duplicates[hashEntry] = fullpath
+			atomic.AddInt64(dupeSize, entry.Size())
+		} else {
+			hashes[hashString] = fullpath
+		}
+	}
+}
+
+func toReadableSize(nbytes int64) string {
+	if nbytes > 1024*1024*1024*1024 {
+		return strconv.FormatInt(nbytes/(1024*1024*1024*1024), 10) + " TB"
+	}
+	if nbytes > 1024*1024*1024 {
+		return strconv.FormatInt(nbytes/(1024*1024*1024), 10) + " GB"
+	}
+	if nbytes > 1024*1024 {
+		return strconv.FormatInt(nbytes/(1024*1024), 10) + " MB"
+	}
+	if nbytes > 1024 {
+		return strconv.FormatInt(nbytes/1024, 10) + " KB"
+	}
+	return strconv.FormatInt(nbytes, 10) + " B"
+}
+
+func main() {
+	var err error
+	dir := flag.String("path", "", "the path to traverse searching for duplicates")
+	flag.Parse()
+
+	if *dir == "" {
+		*dir, err = os.Getwd()
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	hashes := map[string]string{}
+	duplicates := map[string]string{}
+	var dupeSize int64
+
+	entries, err := ioutil.ReadDir(*dir)
+	if err != nil {
+		panic(err)
+	}
+
+	traverseDir(hashes, duplicates, &dupeSize, entries, *dir)
+
+	fmt.Println("DUPLICATES")
+	for key, val := range duplicates {
+		fmt.Printf("key: %s, val: %s\n", key, val)
+	}
+	fmt.Println("TOTAL FILES:", len(hashes))
+	fmt.Println("DUPLICATES:", len(duplicates))
+	fmt.Println("TOTAL DUPLICATE SIZE:", toReadableSize(dupeSize))
+}
+
+// running into problems of not being able to open directories inside .app folders
+```
+
+Going through the code via. the `main` method, we are parsing an input parameter `path`, and using this to read files from a directory. These files will be sent to the function `traverseDir`, in which we are also parsing two hash `map` objects `hashes` (all file hashes) and `duplicates` (all duplicate file hashes). Lastly, we are also inputting the `dupeSize` parameter, which will indicate the cummultative file size of our duplicate files. 
+
+// explain traverseDir
+
+
+## Refactoring
 
 ### Refactoring `toReadableSize`
 
-First we make some global constants for the different integer values of the sizes that we are returning (GB, MB etc.). We use this when determining the readable size of `nbytes`, and change the if statement blocks into switch statements:
+First, we are going to be picking the low-hanging-fruits. The function `toReadableSize` looks pretty ugly. Firstly, we are using multiples of `1024`. For everyone who knows what this number represents, it makes sense, however, for anyone reading the code for the first time, this is just an ambiguous number. Therefore we will establish some global constants for the different integer values of the sizes that we are returning (GB, MB etc.). We use this when determining the readable size of `nbytes`, and change the if statement blocks into switch statements:
 
 ```go
 const TB = 1099511627776
@@ -34,9 +162,11 @@ func toReadableSize(nbytes int64) string {
 }
 ```
 
+Secondly, we are also getting rid of the `if` statements and converting to using a `switch` statement instead. We aren't doing much differently here, but it's a good example to start off with. The intention of this function is now much more clear, with very little effort.
+
 ### Refactoring `traverseDir`
 
-Ok, let's go to the more meatier function, traverseDir. Why do we want to refactor this function? Well, let's think about what our peudo code for this would look like:
+Ok, let's go to the more interesting function, `traverseDir`. Why do we want to refactor this function? A good way to think about this, is to think of how you would describe this function in pseudio code and then compare it to your actual function. I'm thinking that this function could be reduced to the following pseudo-code.
 
 ```
 traverseDir:
@@ -47,7 +177,7 @@ traverseDir:
             check file is duplicate
 ```
 
-That is a lot more lines that we have now... and definitely more readable than what we have now. The pseudo code is our aim for what our function should look at. So, let's split it apart and see what we can do... 
+That is a lot less lines than what we have now... and definitely more readable than what we have now. The pseudo code is our target for what our function should look at. So, let's split it apart and see what we can do... 
 
 Something that is nice about golangs, otherwise very criticised, error handling system, is that it's quite easy to spot when there is potential for refactoring. Whenever you see two `if err != nil` in the same function, you know you can split this out to a single function. In our case, this becomes:
 
