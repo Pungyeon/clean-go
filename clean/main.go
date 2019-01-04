@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	TB = 1099511627776
-	GB = 1073741824
-	MB = 1048576
-	KB = 1024
+	TB = GB * 1000
+	GB = MB * 1000
+	MB = KB * 1000
+	KB = 1000
 )
 
 type DuplicateIndex struct {

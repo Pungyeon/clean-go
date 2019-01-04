@@ -47,17 +47,17 @@ func traverseDir(hashes, duplicates map[string]string, dupeSize *int64, entries 
 }
 
 func toReadableSize(nbytes int64) string {
-	if nbytes > 1024*1024*1024*1024 {
-		return strconv.FormatInt(nbytes/(1024*1024*1024*1024), 10) + " TB"
+	if nbytes > 1000*1000*1000*1000 {
+		return strconv.FormatInt(nbytes/(1000*1000*1000*1000), 10) + " TB"
 	}
-	if nbytes > 1024*1024*1024 {
-		return strconv.FormatInt(nbytes/(1024*1024*1024), 10) + " GB"
+	if nbytes > 1000*1000*1000 {
+		return strconv.FormatInt(nbytes/(1000*1000*1000), 10) + " GB"
 	}
-	if nbytes > 1024*1024 {
-		return strconv.FormatInt(nbytes/(1024*1024), 10) + " MB"
+	if nbytes > 1000*1000 {
+		return strconv.FormatInt(nbytes/(1000*1000), 10) + " MB"
 	}
-	if nbytes > 1024 {
-		return strconv.FormatInt(nbytes/1024, 10) + " KB"
+	if nbytes > 1000 {
+		return strconv.FormatInt(nbytes/1000, 10) + " KB"
 	}
 	return strconv.FormatInt(nbytes, 10) + " B"
 }
