@@ -77,17 +77,17 @@ func traverseDir(hashes, duplicates map[string]string, dupeSize *int64, entries 
 }
 
 func toReadableSize(nbytes int64) string {
-	if nbytes > 1024*1024*1024*1024 {
-		return strconv.FormatInt(nbytes/(1024*1024*1024*1024), 10) + " TB"
+	if nbytes > 1000*1000*1000*1000 {
+		return strconv.FormatInt(nbytes/(1000*1000*1000*1000), 10) + " TB"
 	}
-	if nbytes > 1024*1024*1024 {
-		return strconv.FormatInt(nbytes/(1024*1024*1024), 10) + " GB"
+	if nbytes > 1000*1000*1000 {
+		return strconv.FormatInt(nbytes/(1000*1000*1000), 10) + " GB"
 	}
-	if nbytes > 1024*1024 {
-		return strconv.FormatInt(nbytes/(1024*1024), 10) + " MB"
+	if nbytes > 1000*1000 {
+		return strconv.FormatInt(nbytes/(1000*1000), 10) + " MB"
 	}
-	if nbytes > 1024 {
-		return strconv.FormatInt(nbytes/1024, 10) + " KB"
+	if nbytes > 1000 {
+		return strconv.FormatInt(nbytes/1000, 10) + " KB"
 	}
 	return strconv.FormatInt(nbytes, 10) + " B"
 }
@@ -135,33 +135,55 @@ Finally, we print out our results in a 'human readable' format. Instead of prese
 
 ### Refactoring `toReadableSize`
 
-First, we are going to be picking the low-hanging-fruits. The function `toReadableSize` looks pretty ugly. Firstly, we are using multiples of `1000`. For everyone who knows what this number represents, it makes sense, however, for anyone reading the code for the first time, this is just an ambiguous number. Therefore we will establish some global constants for the different integer values of the sizes that we are returning (GB, MB etc.). We use this when determining the readable size of `nbytes`, and change the if statement blocks into switch statements:
+First, we are going to be picking the low-hanging-fruits. The function `toReadableSize` looks pretty ugly. Firstly, we are using multiples of `1000`. For everyone who knows what this number represents, it makes sense, however, for anyone reading the code for the first time, this number is rather ambiguous. Therefore, we will establish some global constants for the different values of the sizes that we are returning (GB, MB etc.). We use this when determining the readable size of `nbytes`, and change the if statement blocks into switch statements. As you might have noticed, we are only returning integers, where it would make more sense to return floats:
 
 ```go
 const (
-	TB = GB * 1000
-	GB = MB * 1000
-	MB = KB * 1000
-	KB = 1000
+	TB = GB * 1000.0
+	GB = MB * 1000.0
+	MB = KB * 1000.0
+	KB = 1000.0
 )
 
 
-func toReadableSize(nbytes int64) string {
+func ToReadableSize(nbytes int64) string {
 	switch {
 	case nbytes > TB:
-		return strconv.FormatInt(nbytes/TB, 10) + " TB"
+		return strconv.FormatFloat(float64(nbytes)/TB, 'f', 2, 64) + " TB"
 	case nbytes > GB:
-		return strconv.FormatInt(nbytes/GB, 10) + " GB"
+		return strconv.FormatFloat(float64(nbytes)/GB, 'f', 2, 64) + " GB"
 	case nbytes > MB:
-		return strconv.FormatInt(nbytes/MB, 10) + " MB"
+		return strconv.FormatFloat(float64(nbytes)/MB, 'f', 2, 64) + " MB"
 	case nbytes > KB:
-		return strconv.FormatInt(nbytes/KB, 10) + " KB"
+		return strconv.FormatFloat(float64(nbytes)/KB, 'f', 2, 64) + " KB"
+	}
+	return strconv.FormatFloat(float64(nbytes), 'f', 2, 64) + " B"
+}
+```
+
+However, this is still very ugly and just as (if not more unreadable) than before. There is a lot of code duplication here, which we should get rid of. So let's make our own `toFloatString` function:
+
+```go
+func toFloatString(nbytes int64, divider float64) string {
+	return strconv.FormatFloat(float64(nbytes)/divider, 'f', 2, 64)
+}
+
+func ToReadableSize(nbytes int64) string {
+	switch {
+	case nbytes > TB:
+		return toFloatString(nbytes, TB) + " TB"
+	case nbytes > GB:
+		return toFloatString(nbytes, GB) + " GB"
+	case nbytes > MB:
+		return toFloatString(nbytes, MB) + " MB"
+	case nbytes > KB:
+		return toFloatString(nbytes, KB) + " KB"
 	}
 	return strconv.FormatInt(nbytes, 10) + " B"
 }
 ```
 
-Secondly, we are also getting rid of the `if` statements and converting to using a `switch` statement instead. We aren't doing much differently here, but it's a good example to start off with. The intention of this function is now much clearer, with very little effort.
+Now, our function is nice and readable again. This refactor obviously isn't game changing, but it's a good example to start off with. The intention of this function is now much clearer, with very little effort.
 
 ### Refactoring `traverseDir`
 
@@ -454,7 +476,7 @@ func (index *DuplicateIndex) Result() string {
 }
 ```
 
-our final main function looks as such:
+this makes our final `main` function, look like this:
 
 ```go
 func main() {
@@ -475,56 +497,13 @@ func main() {
 }
 ```
 
-Now, something that I want to point out is, that the actual logic behind our traversal of our directories for finding duplicates is very contained. As of now, it's 3 lines, meaning that this code is very easy to implement in other part of the code base. So to sum up:
-* Our code is now easy to use for other developers (especially those who don't care about the implementation). 
+We could do some more refactoring, but for this short article, I think this is a good point to stop. Of course, in actual code, we would separate these functions into packages, to separate / isolate the responsibility of the code. However, again for the brevity of this article, I have decided to omit this refactoring step. You can, however, see how I decided to do this in the source code. 
+
+Now, let's sum up the result of our code refactor:
+* Our code is now easy to implement for other developers. 
 * It's much easier to read than before. We can skim the code to begin with, and then go into detail on the parts that we wish to. There is less ambiguous / vague code, making everything generally easier to comprehend.
 * Our code is super easy to test. This makes further development a lot easier and decreases the chances for bugs, for this very reason.
 
 As mentioned to begin with 'clean code' is not necessarily super well defined and sometimes comes down to subjective opinion on what is 'more readable' or 'nicer looking'. However, I hope this article gave some insight as to why it's important to refactor your code, as well as how easy it actually is!
 
 Let me know if you have any feedback or questions on this articles content, by sending me an e-mail at lja@pungy.dk thanks! :wave:
-
-### BONUS REFACTOR
-So, here is something that I didn't want to add into the final code, because it's not 'idiomatic' go. However, I would like to show this type of refactoring regardless. We are going to have another look at our `TraverseDirRecursively` function. We can see that we are checking for `err` to begin with and returning is `err != nil`. However, this isn't completely necessary. A pretty common pattern, would be to return an empty list on error. In this case, we want to keep the error information however... but there is a way to do this! 
-
-First we are going to make a new `type` called `DirectoryEntries`, which we will create a constructor for:
-
-```go
-type DirectoryEntries struct {
-	Directory string
-	Entries   []os.FileInfo
-	Error     error
-}
-
-func NewDirectoryEntries(path string) *DirectoryEntries {
-	entries, err := ioutil.ReadDir(path)
-	return &DirectoryEntries{
-		Directory: path,
-		Entries:   entries,
-		Error:     err,
-	}
-}
-```
-
-Notice that we don't really care about `err` returned by `ioutil.ReadDir`. When we instatiate `entries, err`, this instatiation is equivalent to  `var entries []os.FileInfo`. When we traverse over these with `for _, entry := range entries`, if the slice is empty, nothing happens. This is great, because it means that we can store the error in our `DirectoryEntries` type, and create a new method for iterating over all of our entries:
-
-```go
-func (entries *DirectoryEntries) Iterate(index *DuplicateIndex) *DirectoryEntries {
-	for _, entry := range entries.Entries {
-		if err := NewEntryHandler(entry, entries.Directory).Handle(index); err != nil {
-			return &DirectoryEntries{Error: err}
-		}
-	}
-	return entries
-}
-```
-
-It seems a little dirty to be passing the `DuplicateIndex` from the `Iterate` function cown to the `.Handle` method, which is why I haven't included this in the main part of the article. However, we can change our `TraverseDirRecursively` function to a single line now, which will look like this:
-
-```go
-func (index *DuplicateIndex) TraverseDirRecursively(directory string) error {
-	return NewDirectoryEntries(directory).Iterate(index).Error
-}
-```
-
-Pretty neat, but not necessarily more readable :)
