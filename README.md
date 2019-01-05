@@ -13,7 +13,7 @@ However, I will attempt to give a brief summary of what I believe to be clean co
 2. Independant of rest of code base
 	- Clean code ensures that if code changes in one part of the codebase, the rest of the codebase is essentially unaffected. In other words, code is segregated into functionality silos, independent of the rest of the code base.
 3. Testable
-	- This is not only true for clean code, but for *all code*. It should be testable. If code is not testable, we can be very sure that it's not clean. 
+	- If code is not testable, we can be very sure that it's not clean. Of course, *all code* should be tested, this is not necessarily something that is strictly related to clean code. Making code testable, however, is a big aspect of clean code.
 
 There are many other additions to these sentiments. Code shouldn't be duplicated, functions shouldn't be very long etc. However, we will cover this later. These three rules are, in my opinion, the most important aspects to writing clean code.
 
