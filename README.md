@@ -4,13 +4,13 @@
 So, this article is a little different from my others. Instead of focusing on a specific product, or solving a speficied problem, we will be looking at something a little more abstract. This article will be focusing on writing "clean code" with golang. The article will be starting with a short introduction as to what is defined by "clean code" and then, we will move onto a practical example, in which we refactor an example application, into a cleaner version. You can find all code for this article at https://github.com/Pungyeon/clean-go
 
 ## What is "Clean Code"
-The idea of clode code, is not something that is particularly rigid in definition. In my opinion, the closest thing to a defacto standard, are the books produced by Robert C. Martin (also known as "Uncle Bob"), who has written the "Clean Code" series, as well as having produced an excellent and extensive video series on the topic. 
+The idea of clean code, is not something that is particularly rigid in definition. In my opinion, the closest thing to a defacto standard, are the books produced by Robert C. Martin (also known as "Uncle Bob"), who has written the "Clean Code" series, as well as having produced an excellent and extensive video series on the topic. 
 
 However, I will attempt to give a brief summary of what I believe to be clean code:
 
 1. Easy to read code
 	- Clean code is easy to read. In fact, it should be almost as easy to read as prose. If there is need for comments or the like, the code most likely isn't clean. It's intentions should be very clear, just from skimming the code.
-2. Independant of rest of code base
+2. Independent of rest of code base
 	- Clean code ensures that if code changes in one part of the codebase, the rest of the codebase is essentially unaffected. In other words, code is segregated into functionality silos, independent of the rest of the code base.
 3. Testable
 	- If code is not testable, we can be very sure that it's not clean. Of course, *all code* should be tested, this is not necessarily something that is strictly related to clean code. Making code testable, however, is a big aspect of clean code.
