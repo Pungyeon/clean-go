@@ -506,4 +506,4 @@ Now, let's sum up the result of our code refactor:
 
 As mentioned to begin with 'clean code' is not necessarily super well defined and sometimes comes down to subjective opinion on what is 'more readable' or 'nicer looking'. However, I hope this article gave some insight as to why it's important to refactor your code, as well as how easy it actually is!
 
-Let me know if you have any feedback or questions on this articles content, by sending me an e-mail at lja@pungy.dk thanks! :wave:
+Let me know if you have any feedback or questions on this articles content, by sending me an e-mail at lasse@jakobsen.dev thanks! :wave:
